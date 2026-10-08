@@ -54,13 +54,14 @@ export function usePasswordController() {
   const [validationError, setValidationError] = useState(false);
 
   const handlePasswordChange = (newPassword: string) => {
-  const hasInvalidChars = /[^\x20-\x7E]/.test(newPassword);
-  
-  if (hasInvalidChars && newPassword !== "") {
-    setValidationError(true);
-    setTimeout(() => setValidationError(false), 2000);
-    return; // NON aggiorna password
-  }
+    // NIST 3.1.1: accetta Unicode e spazio, vieta solo i caratteri di controllo
+    const hasInvalidChars = /[\x00-\x1F\x7F]/.test(newPassword);
+
+    if (hasInvalidChars && newPassword !== "") {
+      setValidationError(true);
+      setTimeout(() => setValidationError(false), 2000);
+      return; // NON aggiorna password
+    }
   
   setPassword(newPassword);
   setValidationError(false);

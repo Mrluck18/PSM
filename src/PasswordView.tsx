@@ -45,7 +45,7 @@ export default function PasswordView() {
 
         {validationError && (
           <p style={{ color: '#ff3b3b', fontSize: '14px', marginTop: '8px' }}>
-            Sono ammessi solo caratteri alfanumerici e simboli speciali
+            Sono ammessi tutti i caratteri tranne quelli di controllo (es. tab)
           </p>
          )}
          
