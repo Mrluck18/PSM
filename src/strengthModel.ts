@@ -56,12 +56,6 @@ function calcolaEntropiaLocale(pwd: string): number {
   return bits;
 }
 
-function hasUpperAndSymbol(pwd: string): boolean {
-  const hasUpper = /[A-Z]/.test(pwd);
-  const hasSymbol = /[^A-Za-z0-9]/.test(pwd);
-  return hasUpper && hasSymbol;
-}
-
 function controlloPattern(pwd: string): boolean {
   const lower = pwd.toLowerCase();
 
@@ -101,12 +95,6 @@ function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): str
   if (pwd.length < 8) {
     suggestions.push("Usa almeno 8 caratteri.");
   }
-  if (!/[A-Z]/.test(pwd)) {
-    suggestions.push("Aggiungi una lettera maiuscola.");
-  }
-  if (!/[^A-Za-z0-9]/.test(pwd)) {
-    suggestions.push("Aggiungi un simbolo speciale (es. @, #, !).");
-  }
   if (hasPattern) {
     suggestions.push("Evita sequenze comuni (es. '1234', 'abcd') o caratteri ripetuti.");
   }
@@ -123,10 +111,8 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   }  
   
   let bits = calcolaEntropiaLocale(pwd);
-  const hasBonus = hasUpperAndSymbol(pwd);
   const hasPattern = controlloPattern(pwd);
 
-  if (hasBonus) bits += 6;
   if (!hasPattern) bits += 6;
 
 
