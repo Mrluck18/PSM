@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { calcoloRobustezza, Strength } from "./strengthModel";
 
 const INITIAL_STRENGTH: Strength = {
-  entropyBits: 0,
+  baseScore: 0,
   score: 0,
   label: "Inizia a digitare…",
   color: "#2d7dff",

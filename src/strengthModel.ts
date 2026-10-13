@@ -1,5 +1,5 @@
 export type Strength = {
-  entropyBits: number;
+  baseScore: number;
   score: number;
   label: string;
   color: string;
@@ -45,15 +45,15 @@ async function checkPwned(password: string): Promise<boolean> {
   }
 }
 
-function calcolaEntropiaLocale(pwd: string): number {
+function calcolaScoreNIST(pwd: string): number {
   const L = pwd.length;
-  if (L === 0) return 0;
-  let bits = 0;
-  bits += 4;
-  bits += Math.min(Math.max(L - 1, 0), 7) * 2;
-  bits += Math.min(Math.max(L - 8, 0), 12) * 1.5;
-  bits += Math.max(L - 20, 0) * 1;
-  return bits;
+  if (L < 8) return 0;
+  let base = 0;
+  if (L >= 8)  base += 20;  // 20 → Debole
+  if (L >= 12) base += 17;  // 37 → Media
+  if (L >= 15) base += 30;  // 67 → Forte
+  if (L >= 20) base += 13;  // 80 → massimo
+  return base;
 }
 
 function controlloPattern(pwd: string): boolean {
@@ -80,11 +80,6 @@ function controlloPattern(pwd: string): boolean {
   return false;
 }
 
-function entropyToScore(entropyBits: number): number {
-  const MAX = 80;
-  return Math.max(0, Math.min(100, Math.round((entropyBits / MAX) * 100)));
-}
-
 function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): string[] {
   const suggestions: string[] = [];
 
@@ -107,33 +102,26 @@ function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): str
 
 export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!pwd) {
-    return { entropyBits: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: []};
-  }  
-  
-  let bits = calcolaEntropiaLocale(pwd);
-  const hasPattern = controlloPattern(pwd);
-
-  if (!hasPattern) bits += 6;
-
-
-  // 2. Controllo Online 
-  const isPwned = await checkPwned(pwd);
-  
-  if (!isPwned) {
-    bits += 6; 
+    return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: []};
   }
 
-  const score = entropyToScore(bits);
+  const base = calcolaScoreNIST(pwd);
+  const hasPattern = controlloPattern(pwd);
+
+// Controllo online
+  const isPwned = await checkPwned(pwd);
+
+  const score = isPwned ? 0 : base;
 
   let label = score < 34 ? "Debole" : score < 67 ? "Media" : "Forte";
   let color = score < 34 ? "#ff3b3b" : score < 67 ? "#ffd000" : "#00d084";
 
   if (isPwned) {
     label = "Questa password è apparsa in database pubblici di violazioni di dati Sostituiscila con una frase lunga o una sequenza casuale di parole";
-    color = "#ff0000"; // Rosso forte
+    color = "#ff0000";
   }
 
   const suggestions = getSuggestions(pwd, hasPattern, isPwned);
 
-  return {entropyBits: bits, score, label, color, suggestions};  
+  return { baseScore: base, score, label, color, suggestions };
 } 
