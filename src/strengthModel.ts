@@ -1,3 +1,5 @@
+import { sha1 } from "./cryptoUtils";
+
 export type Strength = {
   baseScore: number;
   score: number;
@@ -5,16 +7,6 @@ export type Strength = {
   color: string;
   suggestions: string[];
 };
-
-// Funzione helper per calcolare SHA-1
-async function sha1(str: string): Promise<string> {
-  const enc = new TextEncoder();
-  const hash = await crypto.subtle.digest("SHA-1", enc.encode(str));
-  return Array.from(new Uint8Array(hash))
-    .map((v) => v.toString(16).padStart(2, "0"))
-    .join("")
-    .toUpperCase();
-}
 
 async function richiediRange(prefissoHash: string): Promise<string> {
   const response = await fetch(`https://api.pwnedpasswords.com/range/${prefissoHash}`);
