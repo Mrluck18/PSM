@@ -1,4 +1,6 @@
 import { sha1 } from "./cryptoUtils";
+import { isInBlacklist } from "./blacklist";
+
 
 export type Strength = {
   baseScore: number;
@@ -48,8 +50,8 @@ function calcolaScoreNIST(pwd: string): number {
   return base;
 }
 
-function computeLabelAndColor( score: number, L: number, isPwned: boolean): { label: string; color: string } {
-  if (isPwned) {
+function computeLabelAndColor( score: number, L: number, isCompromised: boolean): { label: string; color: string } {
+  if (isCompromised) {
     return {
       label:
           "Questa password è apparsa in database pubblici di violazioni di dati. " +
@@ -88,10 +90,10 @@ function controlloPattern(pwd: string): boolean {
   return false;
 }
 
-function getSuggestions(pwd: string, hasPattern: boolean, isPwned: boolean): string[] {
+function getSuggestions(pwd: string, hasPattern: boolean, isCompromised: boolean): string[] {
   const suggestions: string[] = [];
 
-  if (isPwned) {
+  if (isCompromised) {
     return []; 
   }
 
@@ -116,14 +118,20 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   const base = calcolaScoreNIST(pwd);
   const hasPattern = controlloPattern(pwd);
 
-// Controllo online
-  const isPwned = await checkPwned(pwd);
+// Controllo locale primario: nessuna richiesta di rete per le password più comuni
+  const isBlacklisted = await isInBlacklist(pwd);
 
-  const score = isPwned ? 0 : base;
+// HIBP solo come fallback, se la blacklist locale non ha trovato la password
+  const isPwned = isBlacklisted ? false : await checkPwned(pwd);
 
-  const { label, color } = computeLabelAndColor(score, pwd.length, isPwned);
+  const isCompromised = isBlacklisted || isPwned;
 
-  const suggestions = getSuggestions(pwd, hasPattern, isPwned);
+  const score = isCompromised ? 0 : base;
+
+  const { label, color } = computeLabelAndColor(score, pwd.length, isCompromised);
+
+  const suggestions = getSuggestions(pwd, hasPattern, isCompromised);
 
   return { baseScore: base, score, label, color, suggestions };
+
 } 
