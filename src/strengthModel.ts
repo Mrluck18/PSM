@@ -1,13 +1,22 @@
 import { sha1 } from "./cryptoUtils";
 import { isInBlacklist } from "./blacklist";
 
-
 export type Strength = {
   baseScore: number;
   score: number;
   label: string;
   color: string;
   suggestions: string[];
+};
+
+export type PatternType = "REPETITION" | "SEQUENCE" | "KEYBOARD" | "DATE";
+
+export type PatternMatch = {
+  type: PatternType;
+  segment: string;
+  start: number; // incluso, indice nella password originale
+  end: number;   // escluso
+  penalty: number;
 };
 
 async function richiediRange(prefissoHash: string): Promise<string> {
