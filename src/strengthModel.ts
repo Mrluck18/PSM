@@ -75,6 +75,27 @@ function computeLabelAndColor( score: number, L: number, isCompromised: boolean)
   return { label: "Debole", color: "#ff3b3b" };
 }
 
+function penalitaPerLunghezza(base: number, len: number, minLen: number): number {
+  return Math.min(25, base + 3 * (len - minLen));
+}
+
+export function detectRepeatedChars(pwd: string): PatternMatch[] {
+  const matches: PatternMatch[] = [];
+  const regex = /(.)\1{2,}/giu; // 3 o più caratteri uguali di seguito
+  let m: RegExpExecArray | null;
+
+  while ((m = regex.exec(pwd)) !== null) {
+    matches.push({
+      type: "REPETITION",
+      segment: m[0],
+      start: m.index,
+      end: m.index + m[0].length,
+      penalty: penalitaPerLunghezza(10, m[0].length, 3),
+    });
+  }
+  return matches;
+}
+
 function controlloPattern(pwd: string): boolean {
   const lower = pwd.toLowerCase();
 
