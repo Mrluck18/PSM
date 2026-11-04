@@ -96,6 +96,55 @@ export function detectRepeatedChars(pwd: string): PatternMatch[] {
   return matches;
 }
 
+function codiceNormalizzato(pwd: string, i: number): number {
+  const code = pwd.charCodeAt(i);
+  return code >= 65 && code <= 90 ? code + 32 : code; // A-Z → a-z
+}
+
+function tipoCarattere(code: number): "cifra" | "lettera" | null {
+  if (code >= 48 && code <= 57) return "cifra";
+  if (code >= 97 && code <= 122) return "lettera";
+  return null;
+}
+
+export function detectSequences(pwd: string): PatternMatch[] {
+  const matches: PatternMatch[] = [];
+  let start = 0;
+
+  while (start < pwd.length - 1) {
+    const c0 = codiceNormalizzato(pwd, start);
+    const c1 = codiceNormalizzato(pwd, start + 1);
+    const tipo = tipoCarattere(c0);
+    const passo = c1 - c0;
+
+    if (tipo === null || tipoCarattere(c1) !== tipo || (passo !== 1 && passo !== -1)) {
+      start++;
+      continue;
+    }
+
+    let end = start + 2;
+    while (
+        end < pwd.length &&
+        tipoCarattere(codiceNormalizzato(pwd, end)) === tipo &&
+        codiceNormalizzato(pwd, end) - codiceNormalizzato(pwd, end - 1) === passo
+        ) {
+      end++;
+    }
+
+    if (end - start >= 4) {
+      matches.push({
+        type: "SEQUENCE",
+        segment: pwd.slice(start, end),
+        start,
+        end,
+        penalty: penalitaPerLunghezza(12, end - start, 4),
+      });
+    }
+    start = end - 1;
+  }
+  return matches;
+}
+
 function controlloPattern(pwd: string): boolean {
   const lower = pwd.toLowerCase();
 
