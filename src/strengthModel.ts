@@ -145,6 +145,50 @@ export function detectSequences(pwd: string): PatternMatch[] {
   return matches;
 }
 
+const RIGHE_TASTIERA = ["qwertyuiop", "asdfghjkl", "zxcvbnm"];
+const RIGHE_BIDIREZIONALI = RIGHE_TASTIERA.flatMap((r) => [
+  r,
+  [...r].reverse().join(""),
+]);
+
+export function detectKeyboardPatterns(pwd: string): PatternMatch[] {
+  const matches: PatternMatch[] = [];
+  let i = 0;
+
+  while (i < pwd.length) {
+    let migliore = 0;
+
+    for (const riga of RIGHE_BIDIREZIONALI) {
+      const idx = riga.indexOf(pwd[i].toLowerCase());
+      if (idx === -1) continue;
+
+      let k = 1;
+      while (
+          i + k < pwd.length &&
+          idx + k < riga.length &&
+          riga[idx + k] === pwd[i + k].toLowerCase()
+          ) {
+        k++;
+      }
+      if (k > migliore) migliore = k;
+    }
+
+    if (migliore >= 4) {
+      matches.push({
+        type: "KEYBOARD",
+        segment: pwd.slice(i, i + migliore),
+        start: i,
+        end: i + migliore,
+        penalty: penalitaPerLunghezza(15, migliore, 4),
+      });
+      i += migliore;
+    } else {
+      i++;
+    }
+  }
+  return matches;
+}
+
 function controlloPattern(pwd: string): boolean {
   const lower = pwd.toLowerCase();
 
