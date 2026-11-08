@@ -189,6 +189,35 @@ export function detectKeyboardPatterns(pwd: string): PatternMatch[] {
   return matches;
 }
 
+function isDataValida(g: number, m: number, a: number): boolean {
+  if (a < 1900 || a > 2099 || m < 1 || m > 12 || g < 1) return false;
+  return g <= new Date(a, m, 0).getDate(); // giorni del mese, anni bisestili inclusi
+}
+
+export function detectDates(pwd: string): PatternMatch[] {
+  const matches: PatternMatch[] = [];
+  const regex = /\d+/g; // gruppi di cifre consecutive
+  let m: RegExpExecArray | null;
+
+  while ((m = regex.exec(pwd)) !== null) {
+    const cifre = m[0];
+    const start = m.index;
+    const end = start + cifre.length;
+
+    if (cifre.length === 8) {
+      const g = Number(cifre.slice(0, 2));
+      const mese = Number(cifre.slice(2, 4));
+      const a = Number(cifre.slice(4, 8));
+      if (isDataValida(g, mese, a)) {
+        matches.push({ type: "DATE", segment: cifre, start, end, penalty: 20 });
+      }
+    } else if (cifre.length === 4 && /^(19|20)/.test(cifre)) {
+      matches.push({ type: "DATE", segment: cifre, start, end, penalty: 15 });
+    }
+  }
+  return matches;
+}
+
 function controlloPattern(pwd: string): boolean {
   const lower = pwd.toLowerCase();
 
