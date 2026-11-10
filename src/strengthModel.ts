@@ -7,6 +7,7 @@ export type Strength = {
   label: string;
   color: string;
   suggestions: string[];
+  patterns: PatternMatch[];
 };
 
 export type PatternType = "REPETITION" | "SEQUENCE" | "KEYBOARD" | "DATE";
@@ -218,41 +219,48 @@ export function detectDates(pwd: string): PatternMatch[] {
   return matches;
 }
 
-function controlloPattern(pwd: string): boolean {
-  const lower = pwd.toLowerCase();
+const PENALITA_MASSIMA = 40;
 
-  // 1. Caratteri ripetuti (es. "aaa")
-  if (/(.)\1\1/.test(lower)) return true;
+function removeOverlaps(matches: PatternMatch[]): PatternMatch[] {
+  // Prima i match più gravi, poi i più lunghi: in caso di sovrapposizione vince il primo
+  const ordinati = [...matches].sort(
+      (a, b) => b.penalty - a.penalty || (b.end - b.start) - (a.end - a.start)
+  );
+  const tenuti: PatternMatch[] = [];
 
-  // 2. Sequenze numeriche (es. "1234", "4321")
-  if (/0123|1234|2345|3456|4567|5678|6789|7890/.test(lower)) return true;
-  if (/0987|9876|8765|7654|6543|5432|4321|3210/.test(lower)) return true;
-
-  // 3. Sequenze alfabetiche (es. "abcd", "dcba")
-  if (/abcd|bcde|cdef|defg|efgh|fghi|ghij|hijk|ijkl|jklm|klmn|lmno|mnop|nopq|opqr|pqrs|qrst|rstu|stuv|tuvw|uvwx|vwxy|wxyz/.test(lower)) return true;
-
-  // 4. Tastiera QWERTY (es. "qwer", "asdf")
-  if (/qwer|wert|erty|rtyu|tyui|yuio|uiop/.test(lower)) return true;
-  if (/asdf|sdfg|dfgh|fghj|ghjk|hjkl/.test(lower)) return true;
-  if (/zxcv|xcvb|cvbn|vbnm/.test(lower)) return true;
-
-  // 5. Anni comuni (19xx o 20xx)
-  if (/(19|20)\d{2}/.test(lower)) return true;
-
-  return false;
+  for (const m of ordinati) {
+    if (!tenuti.some((k) => m.start < k.end && k.start < m.end)) {
+      tenuti.push(m);
+    }
+  }
+  return tenuti.sort((a, b) => a.start - b.start);
 }
 
-function getSuggestions(pwd: string, hasPattern: boolean, isCompromised: boolean): string[] {
+function detectPatterns(pwd: string): PatternMatch[] {
+  return removeOverlaps([
+    ...detectRepeatedChars(pwd),
+    ...detectSequences(pwd),
+    ...detectKeyboardPatterns(pwd),
+    ...detectDates(pwd),
+  ]);
+}
+
+function calcolaPenalitaPattern(matches: PatternMatch[]): number {
+  const totale = matches.reduce((somma, m) => somma + m.penalty, 0);
+  return Math.min(totale, PENALITA_MASSIMA);
+}
+
+function getSuggestions(pwd: string, matches: PatternMatch[], isCompromised: boolean): string[] {
   const suggestions: string[] = [];
 
   if (isCompromised) {
-    return []; 
+    return [];
   }
 
   if (pwd.length < 8) {
     suggestions.push("Usa almeno 8 caratteri.");
   }
-  if (hasPattern) {
+  if (matches.length > 0) {
     suggestions.push("Evita sequenze comuni (es. '1234', 'abcd') o caratteri ripetuti.");
   }
   if (suggestions.length === 0 && pwd.length < 12) {
@@ -264,26 +272,25 @@ function getSuggestions(pwd: string, hasPattern: boolean, isCompromised: boolean
 
 export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!pwd) {
-    return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: []};
+    return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: [], patterns: [] };
   }
 
   const base = calcolaScoreNIST(pwd);
-  const hasPattern = controlloPattern(pwd);
+  const patterns = detectPatterns(pwd);
 
-// Controllo locale primario: nessuna richiesta di rete per le password più comuni
+  // Controllo locale primario: nessuna richiesta di rete per le password più comuni
   const isBlacklisted = await isInBlacklist(pwd);
 
-// HIBP solo come fallback, se la blacklist locale non ha trovato la password
+  // HIBP solo come fallback, se la blacklist locale non ha trovato la password
   const isPwned = isBlacklisted ? false : await checkPwned(pwd);
 
   const isCompromised = isBlacklisted || isPwned;
 
-  const score = isCompromised ? 0 : base;
+  const score = isCompromised ? 0 : Math.max(0, base - calcolaPenalitaPattern(patterns));
 
   const { label, color } = computeLabelAndColor(score, pwd.length, isCompromised);
 
-  const suggestions = getSuggestions(pwd, hasPattern, isCompromised);
+  const suggestions = getSuggestions(pwd, patterns, isCompromised);
 
-  return { baseScore: base, score, label, color, suggestions };
-
-} 
+  return { baseScore: base, score, label, color, suggestions, patterns };
+}
