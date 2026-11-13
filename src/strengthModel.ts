@@ -270,6 +270,21 @@ function getSuggestions(pwd: string, matches: PatternMatch[], isCompromised: boo
   return suggestions;
 }
 
+const MESSAGGI_PATTERN: Record<PatternType, (segmento: string) => string> = {
+  REPETITION: (s) =>
+      `«${s}» ripete lo stesso carattere: è uno dei primi schemi che un attaccante prova.`,
+  SEQUENCE: (s) =>
+      `«${s}» è una sequenza ordinata di lettere o cifre, facile da indovinare.`,
+  KEYBOARD: (s) =>
+      `«${s}» segue l'ordine dei tasti sulla tastiera, uno schema molto frequente nelle password violate.`,
+  DATE: (s) =>
+      `«${s}» è riconoscibile come anno o data: gli attaccanti provano per prime le date più comuni.`,
+};
+
+export function buildPatternMessage(match: PatternMatch): string {
+  return MESSAGGI_PATTERN[match.type](match.segment);
+}
+
 export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!pwd) {
     return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: [], patterns: [] };
