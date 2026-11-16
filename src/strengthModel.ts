@@ -250,26 +250,6 @@ function calcolaPenalitaPattern(matches: PatternMatch[]): number {
   return Math.min(totale, PENALITA_MASSIMA);
 }
 
-function getSuggestions(pwd: string, matches: PatternMatch[], isCompromised: boolean): string[] {
-  const suggestions: string[] = [];
-
-  if (isCompromised) {
-    return [];
-  }
-
-  if (pwd.length < 8) {
-    suggestions.push("Usa almeno 8 caratteri.");
-  }
-  if (matches.length > 0) {
-    suggestions.push("Evita sequenze comuni (es. '1234', 'abcd') o caratteri ripetuti.");
-  }
-  if (suggestions.length === 0 && pwd.length < 12) {
-    suggestions.push("Allunga la password con più parole o caratteri casuali.");
-  }
-
-  return suggestions;
-}
-
 const MESSAGGI_PATTERN: Record<PatternType, (segmento: string) => string> = {
   REPETITION: (s) =>
       `«${s}» ripete lo stesso carattere: è uno dei primi schemi che un attaccante prova.`,
@@ -283,6 +263,32 @@ const MESSAGGI_PATTERN: Record<PatternType, (segmento: string) => string> = {
 
 export function buildPatternMessage(match: PatternMatch): string {
   return MESSAGGI_PATTERN[match.type](match.segment);
+}
+
+const MAX_MESSAGGI = 2;
+
+function getSuggestions(pwd: string, matches: PatternMatch[], isCompromised: boolean): string[] {
+  if (isCompromised) {
+    return [];
+  }
+
+  const suggestions: string[] = [];
+
+  if (pwd.length < 8) {
+    suggestions.push("Usa almeno 8 caratteri.");
+  }
+
+  // Prima i problemi più gravi: l'utente vede sempre i due più importanti
+  const perGravita = [...matches].sort((a, b) => b.penalty - a.penalty);
+  for (const m of perGravita) {
+    suggestions.push(buildPatternMessage(m));
+  }
+
+  if (suggestions.length === 0 && pwd.length < 12) {
+    suggestions.push("Allunga la password con più parole o caratteri casuali.");
+  }
+
+  return suggestions.slice(0, MAX_MESSAGGI);
 }
 
 export async function calcoloRobustezza(pwd: string): Promise<Strength> {
