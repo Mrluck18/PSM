@@ -8,6 +8,16 @@ export type Strength = {
   color: string;
   suggestions: string[];
   patterns: PatternMatch[];
+  modification?: ModificationSuggestion;
+};
+
+export type ModificationSuggestion = {
+  original: string;
+  modified: string;
+  weakSegment: string;
+  weakStart: number; // incluso, indice nella password originale
+  weakEnd: number;   // escluso
+  explanation: string;
 };
 
 export type PatternType = "REPETITION" | "SEQUENCE" | "KEYBOARD" | "DATE";
