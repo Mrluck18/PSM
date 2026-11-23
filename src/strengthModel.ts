@@ -301,6 +301,61 @@ function getSuggestions(pwd: string, matches: PatternMatch[], isCompromised: boo
   return suggestions.slice(0, MAX_MESSAGGI);
 }
 
+// Alfabeto del token sostitutivo: 19 consonanti e le cifre 2, 3, 5, 7 (23 simboli).
+const TOKEN_CHARSET = "bcdfghjkmnpqrstvwxz2357";
+const MAX_TENTATIVI_TOKEN = 20;
+
+const DESCRIZIONE_PATTERN: Record<PatternType, string> = {
+  REPETITION: "una ripetizione dello stesso carattere",
+  SEQUENCE: "una sequenza ordinata",
+  KEYBOARD: "una sequenza di tasti vicini",
+  DATE: "un anno o una data",
+};
+
+function indiceCasuale(max: number): number {
+  const buffer = new Uint32Array(1);
+  crypto.getRandomValues(buffer);
+  return buffer[0] % max;
+}
+
+function generaToken(lunghezza: number): string {
+  let token = "";
+  for (let i = 0; i < lunghezza; i++) {
+    token += TOKEN_CHARSET[indiceCasuale(TOKEN_CHARSET.length)];
+  }
+  return token;
+}
+
+export function substituteWeakSegment(
+    pwd: string,
+    matches: PatternMatch[]
+): ModificationSuggestion | null {
+  if (matches.length === 0) return null;
+
+  // Il pattern più grave; a parità di penalità vince il primo
+  const peggiore = matches.reduce((a, b) => (b.penalty > a.penalty ? b : a));
+
+  for (let tentativo = 0; tentativo < MAX_TENTATIVI_TOKEN; tentativo++) {
+    const token = generaToken(peggiore.end - peggiore.start);
+    const modified = pwd.slice(0, peggiore.start) + token + pwd.slice(peggiore.end);
+
+    // Accetta solo se il token non crea nuovi pattern: i pattern devono diminuire
+    if (detectPatterns(modified).length < matches.length) {
+      return {
+        original: pwd,
+        modified,
+        weakSegment: peggiore.segment,
+        weakStart: peggiore.start,
+        weakEnd: peggiore.end,
+        explanation:
+            `Il segmento «${peggiore.segment}» è ${DESCRIZIONE_PATTERN[peggiore.type]}. ` +
+            `Sostituiscilo con caratteri casuali della stessa lunghezza.`,
+      };
+    }
+  }
+  return null;
+}
+
 export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!pwd) {
     return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: [], patterns: [] };
