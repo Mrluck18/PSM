@@ -356,6 +356,28 @@ export function substituteWeakSegment(
   return null;
 }
 
+function suggerisciModifica(
+    pwd: string,
+    matches: PatternMatch[],
+    isCompromised: boolean
+): ModificationSuggestion | undefined {
+  // Mai proporre una variante di una password già compromessa
+  if (isCompromised) return undefined;
+
+  const modifica = substituteWeakSegment(pwd, matches);
+  if (!modifica) return undefined;
+
+  if (pwd.length < 15) {
+    return {
+      ...modifica,
+      explanation:
+          modifica.explanation +
+          " Per una password forte servono almeno 15 caratteri: allungala con altre parole.",
+    };
+  }
+  return modifica;
+}
+
 export async function calcoloRobustezza(pwd: string): Promise<Strength> {
   if (!pwd) {
     return { baseScore: 0, score: 0, label: "Inizia a digitare…", color: "#2d7dff", suggestions: [], patterns: [] };
@@ -378,5 +400,7 @@ export async function calcoloRobustezza(pwd: string): Promise<Strength> {
 
   const suggestions = getSuggestions(pwd, patterns, isCompromised);
 
-  return { baseScore: base, score, label, color, suggestions, patterns };
+  const modification = suggerisciModifica(pwd, patterns, isCompromised);
+
+  return { baseScore: base, score, label, color, suggestions, patterns, modification };
 }
